@@ -99,6 +99,41 @@ defmodule Rlist do
           end
       end
     end
+
+    @spec map(tree, (any -> any)) :: tree
+    def map(tree, f) do
+      case tree do
+        {:leaf, item} ->
+          {:leaf, f.(item)}
+
+        {:parent, {item, left, right}} ->
+          {:parent, {f.(item), map(left, f), map(right, f)}}
+      end
+    end
+
+    @spec reduce(tree, any, (any, any -> any)) :: any
+    def reduce(tree, acc, fun) do
+      case tree do
+        {:leaf, item} ->
+          fun.(item, acc)
+
+        {:parent, {item, left, right}} ->
+          new_acc = fun.(item, acc)
+          new_acc = reduce(left, new_acc, fun)
+          reduce(right, new_acc, fun)
+      end
+    end
+
+    @spec tolist_reversed(tree, [any]) :: [any]
+    def tolist_reversed(tree, acc) do
+      case tree do
+        {:leaf, item} ->
+          [item | acc]
+
+        {:parent, {item, left, right}} ->
+          tolist_reversed(right, tolist_reversed(left, [item | acc]))
+      end
+    end
   end
 
   @type element :: {non_neg_integer, Tree.tree()}
@@ -130,6 +165,19 @@ defmodule Rlist do
   @spec naive_fromlist([any]) :: rlist
   def naive_fromlist(list) do
     Enum.reduce(Enum.reverse(list), empty(), &cons/2)
+  end
+
+  @spec naive_tolist(rlist) :: [any]
+  def naive_tolist(rlist) do
+    naive_tolist(rlist, [])
+  end
+
+  @spec naive_tolist(rlist, acc :: [any]) :: [any]
+  def naive_tolist(rlist, acc) do
+    case uncons(rlist) do
+      {:ok, x, xs} -> naive_tolist(xs, [x | acc])
+      :error -> Enum.reverse(acc)
+    end
   end
 
   @spec index(rlist, non_neg_integer) :: {:ok, any} | :error
@@ -192,7 +240,17 @@ defmodule Rlist do
         {:ok, item, new_list}
 
       [] ->
-        {:ok, nil, nil}
+        :error
     end
+  end
+
+  @spec map(rlist, (any -> any)) :: rlist
+  def map(rlist, f) do
+    Enum.map(rlist, fn {t_size, t} -> {t_size, Tree.map(t, f)} end)
+  end
+
+  @spec reduce(rlist, any, (any, any -> any)) :: any
+  def reduce(rlist, acc, fun) do
+    Enum.reduce(rlist, acc, fn {_t_size, t}, new_acc -> Tree.reduce(t, new_acc, fun) end)
   end
 end
